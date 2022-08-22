@@ -14,7 +14,7 @@ function main() {
     const far = 256;
     const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
     //camera.rotation.set(Math.PI / 3, Math.PI / 3, 0);
-    camera.position.set(6, 1.5, 8);
+    camera.position.set(6, 2.5, 10);
     const cameraDirection = new THREE.Vector3();
     // camera.getWorldDirection(cameraDirecton);
 
@@ -53,8 +53,8 @@ function main() {
     // Prism plane
     var points = [
         new THREE.Vector3(1.4, 5, 0),
-        new THREE.Vector3(1.4, -45, 0),
-        new THREE.Vector3(-1.4, -45, 0),
+        new THREE.Vector3(1.4, -25, 0),
+        new THREE.Vector3(-1.4, -25, 0),
         new THREE.Vector3(-1.4, 5, 0),
     ];
     const shape = new THREE.Shape(points);
@@ -129,7 +129,7 @@ function main() {
     // Initial torch position
     //torchRotate(0);
     torchMove(5);
-    torchRotateAxis(-Math.PI / 180 * 45, 1, 0, 0);
+    //torchRotateAxis(-Math.PI / 180 * 45, 1, 0, 0);
     torchRotateAxis(Math.PI / 180 * 91, 0, 1, 0);
     traceRay();
 
@@ -197,9 +197,14 @@ function main() {
         return null;
     }
 
-    function render(time) {
-        keyAccelerate = Math.max(1, keyAccelerate-0.1);
+    var isAnimation = true;
+    var lastTime;
 
+    const rotZPerSec = 5;
+    const rotXPerSec = 1;
+    var dirRotX = -1;
+
+    function render(time) {
         time *= 0.001;
 
         if (/*!renderer.vr.isPresenting() && */resizeRendererToDisplaySize(renderer)) {
@@ -208,14 +213,25 @@ function main() {
             camera.updateProjectionMatrix();
         }
 
-        meshes.forEach((cube, ndx) => {
-            const speed = 1 + ndx * .1;
-            const rot = time * speed;
-            //cube.rotation.x = rot;
-            //cube.rotation.y = rot;
-        });
+        if (isAnimation) {
+            if (Math.floor(time * rotZPerSec) !== Math.floor(lastTime * rotZPerSec)) {
+                torchRotateAxis(Math.PI / 180 * 5, 0, 0, 1);
+            }
+            if (Math.floor(time * rotXPerSec) !== Math.floor(lastTime * rotXPerSec)) {
+                laserTorchRay.direction.z += Math.random() * 0.1 * dirRotX;
+                laserTorchRay.direction.normalize();
+                torchFollowTheRay();
+                if (laserTorchRay.direction.z > 0 || laserTorchRay.direction.z < -0.95) {
+                    dirRotX *= -1;
+                }
+            }
+            traceRay();
+        }
+
+        keyAccelerate = Math.max(1, keyAccelerate-0.1);
 
         renderer.render(scene, camera);
+        lastTime = time;
     }
 
     renderer.setAnimationLoop(render);
@@ -269,6 +285,7 @@ function main() {
             // space
         }
         keyAccelerate = Math.min(10, keyAccelerate+1);
+        isAnimation = false;
         traceRay();
     };
 

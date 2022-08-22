@@ -14,7 +14,7 @@ function main() {
     const far = 256;
     const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
     //camera.rotation.set(Math.PI / 3, Math.PI / 3, 0);
-    camera.position.set(8, 4, 8);
+    camera.position.set(6, 1.5, 8);
     const cameraDirection = new THREE.Vector3();
     // camera.getWorldDirection(cameraDirecton);
 
@@ -53,8 +53,8 @@ function main() {
     // Prism plane
     var points = [
         new THREE.Vector3(1.4, 5, 0),
-        new THREE.Vector3(1.4, -5, 0),
-        new THREE.Vector3(-1.4, -5, 0),
+        new THREE.Vector3(1.4, -45, 0),
+        new THREE.Vector3(-1.4, -45, 0),
         new THREE.Vector3(-1.4, 5, 0),
     ];
     const shape = new THREE.Shape(points);
@@ -128,8 +128,9 @@ function main() {
 
     // Initial torch position
     //torchRotate(0);
-    torchMove(-5);
-    torchRotate(Math.PI / 180 * 140, 0, 0, 1);
+    torchMove(5);
+    torchRotateAxis(-Math.PI / 180 * 45, 1, 0, 0);
+    torchRotateAxis(Math.PI / 180 * 91, 0, 1, 0);
     traceRay();
 
     function traceRay() {
@@ -140,9 +141,9 @@ function main() {
         var c = 0;
         while ((reflection = rayIntersectAndReflection(lastReflection.ray)) !== null) {
             if (reflection.mesh === lastReflection.mesh) {
-                // avoid recursion
+                // avoid recursion - slightly move intersection point towards reflection ray
                 // - when ray and triangle are on the same plane
-                // - when reflected ray intercect the same triangle
+                // - when reflected ray intersects the same triangle (because of limited float)
                 lastReflection.ray.origin.set(
                     lastReflection.ray.origin.x + lastReflection.ray.direction.x * 0.000000000000001,
                     lastReflection.ray.origin.y + lastReflection.ray.direction.y * 0.000000000000001,
@@ -160,7 +161,7 @@ function main() {
             laserGeometry.vertices.push(lastReflection.ray.origin);
         }
         let endOfRay = lastReflection.ray.direction.multiplyScalar(10);
-        endOfRay.set(endOfRay.x+lastReflection.ray.origin.x, endOfRay.y+lastReflection.ray.origin.y)
+        endOfRay.set(endOfRay.x+lastReflection.ray.origin.x, endOfRay.y+lastReflection.ray.origin.y, endOfRay.z+lastReflection.ray.origin.z)
         laserGeometry.vertices.push(endOfRay);
         scene.remove(laser);
         laser = new THREE.Line(laserGeometry, new THREE.LineBasicMaterial({color: 0xff0000}));
@@ -197,6 +198,8 @@ function main() {
     }
 
     function render(time) {
+        keyAccelerate = Math.max(1, keyAccelerate-0.1);
+
         time *= 0.001;
 
         if (/*!renderer.vr.isPresenting() && */resizeRendererToDisplaySize(renderer)) {
@@ -228,30 +231,32 @@ function main() {
         return needResize;
     }
 
+    var keyAccelerate = 1;
+
     // Keys
     document.addEventListener("keydown", onDocumentKeyDown, false);
     function onDocumentKeyDown(event) {
         var keyCode = event.which;
         if (keyCode == 87) {
             // W - up
-            torchMove(0.1);
+            torchMove(0.01 * keyAccelerate);
         } else if (keyCode == 83) {
             // S - down
-            torchMove(-0.1);
+            torchMove(-0.01 * keyAccelerate);
         }
         if (keyCode == 65) {
             // A - left
-            torchRotate(Math.PI / 72, 0, 0, 1);
+            torchRotateCameraAxis(Math.PI / 180 * keyAccelerate, 0, 0, 1);
         } else if (keyCode == 68) {
             // D - right
-            torchRotate(-Math.PI / 72, 0, 0, 1);
+            torchRotateCameraAxis(-Math.PI / 180 * keyAccelerate, 0, 0, 1);
         }
         if (keyCode == 82) {
             // R
-            torchRotate(Math.PI / 72, 0, 1, 0);
+            torchRotateCameraAxis(Math.PI / 180 * keyAccelerate, 0, 1, 0);
         } else if (keyCode == 70) {
             // F
-            torchRotate(-Math.PI / 72, 0, 1, 0);
+            torchRotateCameraAxis(-Math.PI / 180 * keyAccelerate, 0, 1, 0);
         }
         // if (keyCode == 88) {
         //     // X
@@ -263,6 +268,7 @@ function main() {
         if (keyCode == 32) {
             // space
         }
+        keyAccelerate = Math.min(10, keyAccelerate+1);
         traceRay();
     };
 
@@ -276,13 +282,25 @@ function main() {
         laserTorchMesh.position.copy(torchPosition);
     }
 
-    function torchRotate(step, x, y, z) {
+    function torchRotateAxis(angle, x, y, z) {
+        cameraDirection.set(x, y, z).normalize();
+        torchDirection.copy(laserTorchRay.direction);
+        torchDirection.applyAxisAngle(cameraDirection, angle)
+        laserTorchRay.direction.copy(torchDirection);
+        torchFollowTheRay();
+    }
+
+    function torchRotateCameraAxis(angle, x, y, z) {
         cameraDirection.set(x, y, z).normalize();
         cameraDirection.applyQuaternion(camera.quaternion);
         cameraDirection.normalize();
         torchDirection.copy(laserTorchRay.direction);
-        torchDirection.applyAxisAngle(cameraDirection, step)
+        torchDirection.applyAxisAngle(cameraDirection, angle)
         laserTorchRay.direction.copy(torchDirection);
+        torchFollowTheRay();
+    }
+
+    function torchFollowTheRay() {
         laserTorchMesh.lookAt(laserTorchRay.origin.x + torchDirection.x, laserTorchRay.origin.y + torchDirection.y, laserTorchRay.origin.z + torchDirection.z);
     }
 
